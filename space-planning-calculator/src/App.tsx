@@ -1,5 +1,9 @@
 import "./App.css";
-import { getConstraintsPaths, getSiteLimitsPaths } from "./extensionSdk";
+import {
+  getConstraintsPaths,
+  getSiteLimitsPaths,
+  renderGeoJSONs,
+} from "./extensionSdk";
 import {
   fetchConstraintsFootprints,
   fetchSiteLimitFootprint,
@@ -7,7 +11,7 @@ import {
 import { generateOptions } from "./generativeDesignEngine";
 import { InputParametersType } from "./type";
 import { DoubleHandleSlider, SingleHandleSlider } from "./components/sliders";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 declare global {
   namespace JSX {
@@ -102,12 +106,13 @@ function App() {
     const siteLimitGeojson = await fetchSiteLimitFootprint(siteLimit);
     // mock longer fetch
     await new Promise((resolve) => setTimeout(resolve, 2000));
-    
+
     if (!siteLimitGeojson) return;
-    generateOptions(siteLimitGeojson, constraintsGeojson);
-    console.log(constraintsGeojson, siteLimitGeojson);
+    const outputGeoJSON = generateOptions(siteLimitGeojson, constraintsGeojson);
+
+    await renderGeoJSONs([outputGeoJSON]);
   };
-  
+
   const [inputParameters, setInputParameters] = useState<InputParametersType>({
     widthRange: [0, 50],
     heightRange: [0, 50],

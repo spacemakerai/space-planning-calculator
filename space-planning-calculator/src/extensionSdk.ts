@@ -1,4 +1,5 @@
 import { Forma } from "forma-embedded-view-sdk/auto";
+import { PolygonGeometry } from "./fetchGeometryHook";
 
 export async function getConstraintsPaths() {
   const constraintsPaths = await Forma.geometry.getPathsByCategory({
@@ -13,4 +14,8 @@ export async function getSiteLimitsPaths() {
   });
   if (!siteLimitsPaths) return undefined;
   return siteLimitsPaths[0];
+}
+
+export async function renderGeoJSONs(geoJSONs: PolygonGeometry[]) {
+  return await Forma.render.geojson.add({ geojson: geoJSONs[0] });
 }

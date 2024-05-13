@@ -1,17 +1,7 @@
 import { Forma } from "forma-embedded-view-sdk/auto";
+import { FeatureCollection, Polygon, GeoJsonProperties } from "geojson";
 
-type Feature = {
-  type: string;
-  geometry: {
-    type: string;
-    coordinates: number[][][];
-  };
-};
-
-export type GeoJSON = {
-  type: string;
-  features: Feature[];
-};
+export type PolygonGeometry = FeatureCollection<Polygon, GeoJsonProperties>;
 
 export async function fetchConstraintsFootprints(constraintsPaths: string[]) {
   const constraints = await Promise.all(
@@ -22,7 +12,7 @@ export async function fetchConstraintsFootprints(constraintsPaths: string[]) {
       return footprint.data;
     })
   );
-  return constraints.filter((c) => c !== undefined) as GeoJSON[];
+  return constraints.filter((c) => c !== undefined) as PolygonGeometry[];
 }
 
 export async function fetchSiteLimitFootprint(
@@ -34,5 +24,5 @@ export async function fetchSiteLimitFootprint(
   });
   const footprint = await Forma.elements.representations.footprint(element);
   if (!footprint) return;
-  return footprint.data as GeoJSON;
+  return footprint.data as PolygonGeometry;
 }
