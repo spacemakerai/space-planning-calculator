@@ -106,14 +106,14 @@ function App() {
     const constraintsGeojson = await fetchConstraintsFootprints(
       constraintsPaths
     );
-    const siteLimitGeojson = await fetchSiteLimitFootprint(siteLimit);
+    const siteLimitFootprint = await fetchSiteLimitFootprint(siteLimit);
     // mock longer fetch
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    if (!siteLimitGeojson) return;
+    if (!siteLimitFootprint) return;
     // const outputGeoJSON = generateOptions(siteLimitGeojson, constraintsGeojson);
     const option = sampleOptionFromSiteLimit(
-      siteLimitGeojson,
+      siteLimitFootprint,
       inputParameters.widthRange,
       inputParameters.heightRange,
       100

@@ -3,6 +3,7 @@ import { PolygonGeometry } from "./fetchGeometryHook";
 import { randomPoint } from "@turf/random";
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
 import { transformRotate, transformTranslate, polygon } from "@turf/turf";
+import { Footprint } from "forma-embedded-view-sdk/dist/internal/geometry";
 
 // 1. use input parameters to generate N random options (an option is a set of polygons/buildings)
 // e.g. one option
@@ -34,9 +35,26 @@ type Option = {
 // use turf to generate random points within the site limit
 const generateRandomPoints = (
   nPoints: number,
-  siteLimit: PolygonGeometry
+  siteLimit: Footprint
 ): Position[] => {
-  const siteLimitBbox = siteLimit.features[0].geometry.bbox as [
+  const siteLimitPolygon = polygon([siteLimit.coordinates]);
+  const xMin = siteLimit.coordinates.reduce(
+    (acc, coord) => (coord[0] < acc ? coord[0] : acc),
+    Infinity
+  );
+  const xMax = siteLimit.coordinates.reduce(
+    (acc, coord) => (coord[0] > acc ? coord[0] : acc),
+    -Infinity
+  );
+  const yMin = siteLimit.coordinates.reduce(
+    (acc, coord) => (coord[1] < acc ? coord[1] : acc),
+    Infinity
+  );
+  const yMax = siteLimit.coordinates.reduce(
+    (acc, coord) => (coord[1] > acc ? coord[1] : acc),
+    -Infinity
+  );
+  const siteLimitBbox = [xMin, yMin, xMax, yMax] as [
     number,
     number,
     number,
@@ -47,19 +65,18 @@ const generateRandomPoints = (
   randomPoint(nPoints, { bbox: siteLimitBbox }).features.forEach((point) => {
     const isPointWithinSiteLimit = booleanPointInPolygon(
       point.geometry.coordinates,
-      siteLimit.features[0]
+      siteLimitPolygon
     );
-    // if (isPointWithinSiteLimit) {
+    if (isPointWithinSiteLimit) {
       points.push(point.geometry.coordinates as Position);
-    // }
+    }
   });
-  console.log(points);
 
   return points;
 };
 
 export const sampleOptionFromSiteLimit = (
-  siteLimit: PolygonGeometry,
+  siteLimit: Footprint,
   // constraints: PolygonGeometry[],
   // spaceBetweenBuildings: number,
   widthRange: [number, number],
@@ -78,7 +95,6 @@ export const sampleOptionFromSiteLimit = (
     const height =
       Math.random() * (heightRange[1] - heightRange[0]) + heightRange[0];
     const location = locations[i];
-    console.log(location);
     const angle = Math.random() * 360;
 
     // generate building polygonGeometry from width, height, location, angle
