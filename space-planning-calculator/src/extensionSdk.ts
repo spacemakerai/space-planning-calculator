@@ -17,5 +17,7 @@ export async function getSiteLimitsPaths() {
 }
 
 export async function renderGeoJSONs(geoJSONs: PolygonGeometry[]) {
-  return await Forma.render.geojson.add({ geojson: geoJSONs[0] });
+  return await Promise.all(
+    geoJSONs.map((geojson) => Forma.render.geojson.add({ geojson }))
+  );
 }
