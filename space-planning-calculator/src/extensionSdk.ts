@@ -1,9 +1,16 @@
 import { Forma } from "forma-embedded-view-sdk/auto";
 
-export async function getConstraints() {
+export async function getConstraintsPaths() {
   const constraintsPaths = await Forma.geometry.getPathsByCategory({
     category: "constraints",
   });
-  console.log(constraintsPaths);
   return constraintsPaths;
+}
+
+export async function getSiteLimitsPaths() {
+  const siteLimitsPaths = await Forma.geometry.getPathsByCategory({
+    category: "site_limit",
+  });
+  if (!siteLimitsPaths) return undefined;
+  return siteLimitsPaths[0];
 }
