@@ -1,6 +1,7 @@
 import { Forma } from "forma-embedded-view-sdk/auto";
 
 type Feature = {
+  type: string;
   geometry: {
     type: string;
     coordinates: number[][][];
