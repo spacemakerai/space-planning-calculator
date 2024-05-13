@@ -1,8 +1,13 @@
-import { useEffect, useState } from "react";
 import "./App.css";
-import { getConstraints } from "./extensionSdk";
+import { getConstraintsPaths, getSiteLimitsPaths } from "./extensionSdk";
+import {
+  fetchConstraintsFootprints,
+  fetchSiteLimitFootprint,
+} from "./fetchGeometryHook";
+import { generateOptions } from "./generativeDesignEngine";
 import { InputParametersType } from "./type";
 import { DoubleHandleSlider, SingleHandleSlider } from "./components/sliders";
+import { useEffect, useState } from "react";
 
 declare global {
   namespace JSX {
@@ -87,7 +92,22 @@ const ParametersInput = (props: {
 };
 
 function App() {
-  const [constraints, setConstraints] = useState<string[]>([]);
+  const onClick = async () => {
+    const constraintsPaths = await getConstraintsPaths();
+    const siteLimit = await getSiteLimitsPaths();
+
+    const constraintsGeojson = await fetchConstraintsFootprints(
+      constraintsPaths
+    );
+    const siteLimitGeojson = await fetchSiteLimitFootprint(siteLimit);
+    // mock longer fetch
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    
+    if (!siteLimitGeojson) return;
+    generateOptions(siteLimitGeojson, constraintsGeojson);
+    console.log(constraintsGeojson, siteLimitGeojson);
+  };
+  
   const [inputParameters, setInputParameters] = useState<InputParametersType>({
     widthRange: [0, 50],
     heightRange: [0, 50],
@@ -96,25 +116,6 @@ function App() {
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  const mockFetch = async (): Promise<any> => {
-    // Mocked data
-    const data = {};
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        resolve(data);
-        setIsLoading(false);
-      }, 5000);
-    });
-  };
-
-  useEffect(() => {
-    const fetchConstraints = async () => {
-      const currentConstraints = await getConstraints();
-      setConstraints(currentConstraints);
-    };
-    fetchConstraints();
-  }, []);
 
   return (
     <div className="App">
@@ -130,9 +131,7 @@ function App() {
           variant="solid"
           onClick={() => {
             setIsLoading(true);
-            mockFetch().then((data) => {
-              setIsLoading(false);
-            });
+            onClick().then(() => setIsLoading(false));
           }}
           disabled={isLoading}
         >
