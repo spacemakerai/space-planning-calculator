@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import { getConstraints } from "./extensionSdk";
-import { useRecoilState } from "recoil";
-import { inputParametersState } from "./state";
+import { InputParametersType } from "./type";
+import { DoubleHandleSlider, SingleHandleSlider } from "./components/sliders";
 
 declare global {
   namespace JSX {
@@ -20,7 +20,7 @@ declare global {
         onInput: (event: CustomEvent) => void;
       };
       "weave-progress-bar": {
-        "percent-complete": number;
+        "percent-complete"?: number;
       };
       "weave-button": {
         // children component
@@ -35,81 +35,11 @@ declare global {
   }
 }
 
-const SingleHandleSlider = (props: {
-  value: number;
-  label: string;
-  min: number;
-  max: number;
-  unit: string;
-  onChange: (value: number) => void;
+const ParametersInput = (props: {
+  inputParameters: InputParametersType;
+  setInputParameters: (inputParameters: InputParametersType) => void;
 }) => {
-  const onValueChange = (event: CustomEvent) => {
-    // @ts-ignore
-    props.onChange(event.nativeEvent.detail);
-  };
-
-  return (
-    <div style={{ textAlign: "left", padding: "16px 0" }}>
-      <weave-slider
-        value={props.value}
-        min={props.min}
-        max={props.max}
-        variant="discrete"
-        step={1}
-        showlabel={true}
-        label={props.label}
-        onInput={onValueChange}
-      ></weave-slider>
-      <div>
-        <span>
-          {props.value}
-          {props.unit}
-        </span>
-      </div>
-    </div>
-  );
-};
-
-const DoubleHandleSlider = (props: {
-  range: [number, number];
-  label: string;
-  onChange: (value: [number, number]) => void;
-}) => {
-  const onValueChange = (event: CustomEvent) => {
-    props.onChange([
-      // @ts-ignore
-      event.nativeEvent.detail.from,
-      // @ts-ignore
-      event.nativeEvent.detail.to,
-    ]);
-  };
-  const [value, valueTo] = props.range;
-  return (
-    <div style={{ textAlign: "left", padding: "16px 0" }}>
-      <weave-slider
-        value={value}
-        valueto={valueTo}
-        min={0}
-        max={50}
-        variant="discrete"
-        step={1}
-        showlabel={true}
-        label={props.label}
-        onInput={onValueChange}
-      ></weave-slider>
-      <div>
-        <span>{value}m</span>
-        <span> - </span>
-        <span>{valueTo}m</span>
-      </div>
-    </div>
-  );
-};
-
-const ParametersInput = () => {
-  const [inputParameters, setInputParameters] =
-    useRecoilState(inputParametersState);
-
+  const { inputParameters, setInputParameters } = props;
   return (
     <>
       <DoubleHandleSlider
@@ -158,6 +88,25 @@ const ParametersInput = () => {
 
 function App() {
   const [constraints, setConstraints] = useState<string[]>([]);
+  const [inputParameters, setInputParameters] = useState<InputParametersType>({
+    widthRange: [0, 50],
+    heightRange: [0, 50],
+    landOptimizationRatio: 50,
+    spaceBetweenBuildings: 0,
+  });
+
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const mockFetch = async (): Promise<any> => {
+    // Mocked data
+    const data = {};
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        resolve(data);
+        setIsLoading(false);
+      }, 5000);
+    });
+  };
 
   useEffect(() => {
     const fetchConstraints = async () => {
@@ -170,16 +119,31 @@ function App() {
   return (
     <div className="App">
       <h1>Space Planning Calculator</h1>
-      <ParametersInput />
-      <div style={{ width: "100%", paddingTop: "24px" }}>
+      <ParametersInput
+        inputParameters={inputParameters}
+        setInputParameters={setInputParameters}
+      />
+      <div style={{ width: "100%", padding: "24px 0" }}>
         <weave-button
           label="Calculate"
           type="button"
           variant="solid"
-          onClick={() => {}}
+          onClick={() => {
+            setIsLoading(true);
+            mockFetch().then((data) => {
+              setIsLoading(false);
+            });
+          }}
+          disabled={isLoading}
         >
           Calculate
         </weave-button>
+        {isLoading && (
+          <div style={{ width: "100%", padding: "24px 0" }}>
+            {" "}
+            <weave-progress-bar />
+          </div>
+        )}
       </div>
     </div>
   );
