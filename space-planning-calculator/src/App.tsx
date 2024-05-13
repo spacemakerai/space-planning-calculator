@@ -1,5 +1,9 @@
 import "./App.css";
-import { getConstraintsPaths, getSiteLimitsPaths } from "./extensionSdk";
+import {
+  getConstraintsPaths,
+  getSiteLimitsPaths,
+  renderGeoJSONs,
+} from "./extensionSdk";
 import {
   fetchConstraintsFootprints,
   fetchSiteLimitFootprint,
@@ -16,13 +20,15 @@ function App() {
     );
     const siteLimitGeojson = await fetchSiteLimitFootprint(siteLimit);
     if (!siteLimitGeojson) return;
-    generateOptions(siteLimitGeojson, constraintsGeojson);
+    const outputGeoJSON = generateOptions(siteLimitGeojson, constraintsGeojson);
+
+    await renderGeoJSONs([outputGeoJSON]);
     console.log(constraintsGeojson, siteLimitGeojson);
   };
 
   return (
     <div className="App">
-      <h1>Space Planning Calculator</h1>
+      <h2>Space Planning Calculator</h2>
       <button onClick={onClick}>Get Options</button>
     </div>
   );

@@ -1,14 +1,16 @@
-import { GeoJSON } from "./fetchGeometryHook";
+import { Position } from "geojson";
+import { PolygonGeometry } from "./fetchGeometryHook";
 
 export function generateOptions(
-  siteLimit: GeoJSON,
-  constraints: GeoJSON[],
+  siteLimit: PolygonGeometry,
+  constraints: PolygonGeometry[],
   spaceBetweenBuildings: number = 3.0,
   width: number = 20,
   height: number = 20
-): GeoJSON {
+): PolygonGeometry {
   console.log("Generating options");
-  const coordinates = siteLimit.features[0].geometry.coordinates[0];
+  const coordinates = siteLimit.features[0].geometry
+    .coordinates[0] as Position[];
   const xs = coordinates.map((c) => c[0]);
   const ys = coordinates.map((c) => c[1]);
   const meanX = xs.reduce((acc, x) => x + acc, 0) / xs.length;
@@ -29,6 +31,7 @@ export function generateOptions(
           type: "Polygon",
           coordinates: [rectangle],
         },
+        properties: {},
       },
     ],
   };
