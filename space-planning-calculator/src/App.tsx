@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import { getConstraints } from "./extensionSdk";
-import { useRecoilState } from "recoil";
-import { inputParametersState } from "./state";
 
 declare global {
   namespace JSX {
@@ -35,23 +33,18 @@ declare global {
   }
 }
 
-const SingleHandleSlider = (props: {
-  value: number;
-  label: string;
-  min: number;
-  max: number;
-  unit: string;
-  onChange: (value: number) => void;
-}) => {
+const SingleHandleSlider = (props: { label: string, min: number, max: number, unit: string }) => {
+  const [value, setValue] = useState(Math.round(props.min+props.max)/2);
+
   const onValueChange = (event: CustomEvent) => {
     // @ts-ignore
-    props.onChange(event.nativeEvent.detail);
+    setValue(event.nativeEvent.detail);
   };
 
   return (
     <div style={{ textAlign: "left", padding: "16px 0" }}>
       <weave-slider
-        value={props.value}
+        value={value}
         min={props.min}
         max={props.max}
         variant="discrete"
@@ -61,29 +54,23 @@ const SingleHandleSlider = (props: {
         onInput={onValueChange}
       ></weave-slider>
       <div>
-        <span>
-          {props.value}
-          {props.unit}
-        </span>
+        <span>{value}{props.unit}</span>
       </div>
     </div>
   );
 };
 
-const DoubleHandleSlider = (props: {
-  range: [number, number];
-  label: string;
-  onChange: (value: [number, number]) => void;
-}) => {
+const DoubleHandleSlider = (props: { label: string }) => {
+  const [value, setValue] = useState(5);
+  const [valueTo, setValueTo] = useState(20);
+
   const onValueChange = (event: CustomEvent) => {
-    props.onChange([
-      // @ts-ignore
-      event.nativeEvent.detail.from,
-      // @ts-ignore
-      event.nativeEvent.detail.to,
-    ]);
+    // @ts-ignore
+    setValue(event.nativeEvent.detail.from);
+    // @ts-ignore
+    setValueTo(event.nativeEvent.detail.to);
   };
-  const [value, valueTo] = props.range;
+
   return (
     <div style={{ textAlign: "left", padding: "16px 0" }}>
       <weave-slider
@@ -95,6 +82,7 @@ const DoubleHandleSlider = (props: {
         step={1}
         showlabel={true}
         label={props.label}
+        // onChange={onValueChange}
         onInput={onValueChange}
       ></weave-slider>
       <div>
@@ -103,56 +91,6 @@ const DoubleHandleSlider = (props: {
         <span>{valueTo}m</span>
       </div>
     </div>
-  );
-};
-
-const ParametersInput = () => {
-  const [inputParameters, setInputParameters] =
-    useRecoilState(inputParametersState);
-
-  return (
-    <>
-      <DoubleHandleSlider
-        label={"Width range"}
-        range={inputParameters.widthRange}
-        onChange={(value: [number, number]) => {
-          setInputParameters({ ...inputParameters, widthRange: value });
-        }}
-      />
-      <DoubleHandleSlider
-        label={"Height range"}
-        range={inputParameters.heightRange}
-        onChange={(value: [number, number]) => {
-          setInputParameters({ ...inputParameters, heightRange: value });
-        }}
-      />
-      <SingleHandleSlider
-        label={"Land optimization ratio"}
-        min={0}
-        max={100}
-        unit={"%"}
-        value={inputParameters.landOptimizationRatio}
-        onChange={(value: number) => {
-          setInputParameters({
-            ...inputParameters,
-            landOptimizationRatio: value,
-          });
-        }}
-      />
-      <SingleHandleSlider
-        label={"Space between buildings"}
-        min={0}
-        max={20}
-        unit="m"
-        value={inputParameters.spaceBetweenBuildings}
-        onChange={(value: number) => {
-          setInputParameters({
-            ...inputParameters,
-            spaceBetweenBuildings: value,
-          });
-        }}
-      />
-    </>
   );
 };
 
@@ -167,11 +105,16 @@ function App() {
     fetchConstraints();
   }, []);
 
+  console.log(constraints);
+
   return (
     <div className="App">
       <h1>Space Planning Calculator</h1>
-      <ParametersInput />
-      <div style={{ width: "100%", paddingTop: "24px" }}>
+      <DoubleHandleSlider label={"Width range"} />
+      <DoubleHandleSlider label={"Height range"} />
+      <SingleHandleSlider label={"Land optimization ratio"} min={0} max={100} unit={"%"}/>
+      <SingleHandleSlider label={"Space between buildings"} min={0} max={20} unit="m" />
+      <div style={{ width: "100%", paddingTop: "24px"}}>
         <weave-button
           label="Calculate"
           type="button"
