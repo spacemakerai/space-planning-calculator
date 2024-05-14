@@ -20,7 +20,7 @@ export function getObjectiveFunctionValueForBuilding(
   // Determine overlap with constraints
   const buildingPolygon = building.features[0];
   const constraintsOverlap =
-    constraints.reduce((acc, constraint) => {
+    -constraints.reduce((acc, constraint) => {
       const constraintPolygon = constraint;
       const intersectingPolygon = intersect(buildingPolygon, constraintPolygon);
       if (!intersectingPolygon) return acc;
@@ -29,11 +29,11 @@ export function getObjectiveFunctionValueForBuilding(
 
   // Determine if the building is within the site limit
   const containedBySiteLimit = booleanContains(siteLimit, buildingPolygon);
-  const siteLimitContainmentValue = containedBySiteLimit ? 0 : 1;
+  const siteLimitContainmentValue = containedBySiteLimit ? 1 : 0;
 
   // Determine overlap with other buildings - within the margin of spaceBetweenBuildings
   const otherBuildingsOverlap =
-    otherBuildings.reduce((acc, otherBuilding) => {
+    -otherBuildings.reduce((acc, otherBuilding) => {
       const otherBuildingPolygon = otherBuilding.features[0];
       const intersectingPolygon = intersect(
         buildingPolygon,
@@ -64,7 +64,7 @@ const getLandUtilizationFactor = (
   const landUtilization = intersect(siteLimit, combinedBuildingPolygon);
   if (!landUtilization) return 1;
   const landUtilizationRatio = area(landUtilization) / area(siteLimit);
-  return Math.abs(landUtilizationRatio - landUtilizationRatioTarget);
+  return -Math.abs(landUtilizationRatio - landUtilizationRatioTarget);
 };
 
 export function getObjectiveFunctionValue(
@@ -86,6 +86,33 @@ export function getObjectiveFunctionValue(
   }, 0);
 
   const landUtilizationFactor = getLandUtilizationFactor(
+    buildings,
+    siteLimit,
+    landUtilizationRatio
+  );
+
+  return totalObjectiveValue + landUtilizationFactor;
+}
+
+export function renderObjectiveFunctionValue(
+  buildings: PolygonGeometry[],
+  siteLimit: Feature<Polygon, Properties>,
+  constraints: Feature<Polygon, Properties>[],
+  spaceBetweenBuildings: number,
+  landUtilizationRatio: number
+) {
+  const totalObjectiveValue = buildings.reduce((acc, building, index) => {
+    const otherBuildings = buildings.slice(index + 1);
+    const objectiveValue = getObjectiveFunctionValueForBuilding(
+      building,
+      siteLimit,
+      otherBuildings,
+      constraints
+    );
+    return acc + objectiveValue;
+  }, 0);
+
+  const landUtilizationFactor = -getLandUtilizationFactor(
     buildings,
     siteLimit,
     landUtilizationRatio

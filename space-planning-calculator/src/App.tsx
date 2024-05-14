@@ -8,16 +8,14 @@ import {
   fetchConstraintsFootprints,
   fetchSiteLimitFootprint,
 } from "./fetchGeometryHook";
-import {
-  createFeatureCollection,
-  generateOption,
-} from "./generativeDesignEngine";
 import { InputParametersType } from "./type";
 import { DoubleHandleSlider, SingleHandleSlider } from "./components/sliders";
-import { useState } from "react";
-import { getObjectiveFunctionValue } from "./objectiveFunction";
-import { polygon } from "@turf/turf";
+import { useEffect, useState } from "react";
 import { optimize } from "./geneticAlgorithm";
+import { Footprint } from "forma-embedded-view-sdk/dist/internal/geometry";
+import { Forma } from "forma-embedded-view-sdk/auto";
+import { optionState } from "./state";
+import { useRecoilState, useRecoilValue } from "recoil";
 
 declare global {
   namespace JSX {
@@ -102,33 +100,10 @@ const ParametersInput = (props: {
 };
 
 function App() {
-  const onClick = async () => {
-    const constraintsPaths = await getConstraintsPaths();
-    const siteLimit = await getSiteLimitsPaths();
+  const [isCalculationDone, setIsCalculationDone] = useState<boolean>(false);
 
-    const constraintsGeojson = await fetchConstraintsFootprints(
-      constraintsPaths
-    );
-    const siteLimitFootprint = await fetchSiteLimitFootprint(siteLimit);
-    // mock longer fetch
-    // TODO: REMOVE
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    if (!siteLimitFootprint) return;
-    const finalOption = optimize(
-      constraintsGeojson,
-      siteLimitFootprint,
-      inputParameters.landOptimizationRatio,
-      inputParameters.spaceBetweenBuildings,
-      inputParameters.widthRange,
-      inputParameters.heightRange,
-      10,
-      1000,
-      200
-    );
-
-    await renderGeoJSONs(finalOption);
-  };
+  const [constraints, setConstraints] = useState<Footprint[]>([]);
+  const [siteLimit, setSiteLimit] = useState<Footprint | undefined>();
 
   const [inputParameters, setInputParameters] = useState<InputParametersType>({
     widthRange: [0, 50],
@@ -138,6 +113,45 @@ function App() {
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    const fetchConstraints = async () => {
+      const constraintsPaths = await getConstraintsPaths();
+      const constraintsGeojson = await fetchConstraintsFootprints(
+        constraintsPaths
+      );
+      setConstraints(constraintsGeojson);
+    };
+    fetchConstraints();
+  }, []);
+
+  useEffect(() => {
+    const fetchSiteLimit = async () => {
+      const siteLimitPaths = await getSiteLimitsPaths();
+      const siteLimitFootprint = await fetchSiteLimitFootprint(siteLimitPaths);
+      setSiteLimit(siteLimitFootprint);
+    };
+    fetchSiteLimit();
+  }, []);
+
+  const onClick = async () => {
+    setIsLoading(true);
+    if (siteLimit) {
+      const finalOption = optimize(
+        constraints,
+        siteLimit,
+        inputParameters.landOptimizationRatio / 100,
+        inputParameters.spaceBetweenBuildings,
+        inputParameters.widthRange,
+        inputParameters.heightRange,
+        10,
+        1000,
+        50
+      );
+      await renderGeoJSONs(finalOption);
+    }
+  };
+  console.log(isLoading);
 
   return (
     <div className="App">
@@ -153,7 +167,11 @@ function App() {
           variant="solid"
           onClick={() => {
             setIsLoading(true);
-            onClick().then(() => setIsLoading(false));
+            setIsCalculationDone(false);
+            onClick().then(() => {
+              setIsLoading(false);
+              setIsCalculationDone(true);
+            });
           }}
           disabled={isLoading}
         >
@@ -161,7 +179,7 @@ function App() {
         </weave-button>
         {isLoading && (
           <div style={{ width: "100%", padding: "24px 0" }}>
-            {" "}
+            {"Loading..."}
             <weave-progress-bar />
           </div>
         )}

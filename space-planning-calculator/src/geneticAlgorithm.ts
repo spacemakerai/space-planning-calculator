@@ -2,7 +2,10 @@ import { Feature, Polygon, Properties, polygon } from "@turf/turf";
 import { Darwin } from "charles.darwin";
 import { generateOptionFromNormalizedChromosome } from "./generativeDesignEngine";
 import { Footprint } from "forma-embedded-view-sdk/dist/internal/geometry";
-import { getObjectiveFunctionValue } from "./objectiveFunction";
+import {
+  getObjectiveFunctionValue,
+  renderObjectiveFunctionValue,
+} from "./objectiveFunction";
 
 export const optimize = (
   constraints: Footprint[],
@@ -57,14 +60,23 @@ export const optimize = (
   }
 
   const bestChromosome = population.getTopChromosomes(1);
-
-  return generateOptionFromNormalizedChromosome(
+  const resultOption = generateOptionFromNormalizedChromosome(
     bestChromosome[0].getGenes(),
     siteLimit,
     widhtRange,
     heightRange,
     numberOfBuildings
   );
+
+  renderObjectiveFunctionValue(
+    resultOption,
+    siteLimitPolygon,
+    constraintPolygons,
+    spaceBetweenBuildings,
+    landOptimizationRatio
+  );
+
+  return resultOption;
 };
 
 // optimize();

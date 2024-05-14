@@ -1,10 +1,7 @@
 import { Position } from "geojson";
 import { PolygonGeometry } from "./fetchGeometryHook";
-import { randomPoint } from "@turf/random";
-import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
 import {
   transformRotate,
-  transformTranslate,
   polygon,
   toWgs84,
   toMercator,
