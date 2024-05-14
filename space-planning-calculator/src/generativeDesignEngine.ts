@@ -1,8 +1,14 @@
 import { Position } from "geojson";
 import { PolygonGeometry } from "./fetchGeometryHook";
-import { randomPoint } from "@turf/random";
-import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
-import { transformRotate, transformTranslate, polygon } from "@turf/turf";
+import {
+  transformRotate,
+  polygon,
+  toWgs84,
+  toMercator,
+  Feature,
+  Polygon,
+  Properties,
+} from "@turf/turf";
 import { Footprint } from "forma-embedded-view-sdk/dist/internal/geometry";
 
 // 1. use input parameters to generate N random options (an option is a set of polygons/buildings)
@@ -19,25 +25,129 @@ import { Footprint } from "forma-embedded-view-sdk/dist/internal/geometry";
 // obj func to min = abs(area of all buildings in option / area of site limit - utilization) + area of overlap with constraints
 // probably need to add turf for polygon
 
-type Option = {
-  // designVariables are the result of the initial random sampling
-  designVariables: {
-    widths: number[];
-    heights: number[];
-    locations: Position[];
-    angles: number[];
-  };
-  // the actual buildings generated
-  buildings?: PolygonGeometry[];
-  objectiveValue?: number;
+export const generateOptionFromNormalizedChromosome = (
+  chromosome: number[],
+  siteLimit: Footprint,
+  widhtRange: [number, number],
+  heightRange: [number, number],
+  numberOfBuildings: number
+) => {
+  const widths = chromosome
+    .slice(0, numberOfBuildings)
+    .map(
+      (normalizedWidth) =>
+        normalizedWidth * (widhtRange[1] - widhtRange[0]) + widhtRange[0]
+    );
+  const heights = chromosome
+    .slice(numberOfBuildings, numberOfBuildings * 2)
+    .map(
+      (normalizedHeight) =>
+        normalizedHeight * (heightRange[1] - heightRange[0]) + heightRange[0]
+    );
+  const angles = chromosome
+    .slice(numberOfBuildings * 2, numberOfBuildings * 3)
+    .map((normalizedAngle) => normalizedAngle * 360);
+
+  const normalizedPositions = chromosome.slice(
+    numberOfBuildings * 3,
+    numberOfBuildings * 5
+  );
+  let positions: Position[] = [];
+
+  for (let i = 0; i < numberOfBuildings; i++) {
+    const normalizedPosition = [
+      normalizedPositions[2 * i],
+      normalizedPositions[2 * i + 1],
+    ];
+    const siteLimitBbox = getBboxFromFootprint(siteLimit);
+    const x =
+      normalizedPosition[0] * (siteLimitBbox.xMax - siteLimitBbox.xMin) +
+      siteLimitBbox.xMin;
+    const y =
+      normalizedPosition[1] * (siteLimitBbox.yMax - siteLimitBbox.yMin) +
+      siteLimitBbox.yMin;
+    positions.push([x, y]);
+  }
+
+  return generateOption(widths, heights, angles, positions);
 };
 
-// use turf to generate random points within the site limit
-const generateRandomPoints = (
-  nPoints: number,
-  siteLimit: Footprint
-): Position[] => {
-  const siteLimitPolygon = polygon([siteLimit.coordinates]);
+export const generateOption = (
+  widths: number[],
+  heights: number[],
+  angles: number[],
+  positions: Position[]
+): PolygonGeometry[] => {
+  // check lengths of arrays are different and throw error
+  if (
+    widths.length !== heights.length ||
+    widths.length !== positions.length ||
+    widths.length !== angles.length
+  ) {
+    throw new Error(
+      "Widths, height, angles, and positions must have the same length"
+    );
+  }
+  let polygonGeometries: PolygonGeometry[] = [];
+  // generate buildings
+  for (let i = 0; i < positions.length; i++) {
+    const width = widths[i];
+    const height = heights[i];
+    const location = positions[i];
+
+    const angle = angles[i];
+
+    // generate building polygonGeometry from width, height, location, angle
+    const poly = polygon([
+      [
+        [-height / 2 + location[0], -width / 2 + location[1]],
+        [-height / 2 + location[0], width / 2 + location[1]],
+        [height / 2 + location[0], width / 2 + location[1]],
+        [height / 2 + location[0], -width / 2 + location[1]],
+        [-height / 2 + location[0], -width / 2 + location[1]],
+      ],
+    ]);
+
+    const polyTransformed = polygon([
+      poly.geometry.coordinates[0].map((point) => toWgs84(point)),
+    ]);
+
+    const rotatedPoly = transformRotate(polyTransformed, angle);
+    const reTransformedPoly = polygon([
+      rotatedPoly.geometry.coordinates[0].map((point) => toMercator(point)),
+    ]);
+    // tranlate coords to location
+    const polygonGeometry = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: reTransformedPoly.geometry,
+          properties: {},
+        },
+      ],
+    };
+    polygonGeometries.push(polygonGeometry as PolygonGeometry);
+  }
+  return polygonGeometries;
+};
+
+export const createFeatureCollection = (
+  geometry: Feature<Polygon, Properties>
+) => {
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        geometry: geometry,
+        properties: {},
+      },
+    ],
+  };
+};
+
+function getBboxFromFootprint(siteLimit: Footprint) {
   const xMin = siteLimit.coordinates.reduce(
     (acc, coord) => (coord[0] < acc ? coord[0] : acc),
     Infinity
@@ -54,120 +164,6 @@ const generateRandomPoints = (
     (acc, coord) => (coord[1] > acc ? coord[1] : acc),
     -Infinity
   );
-  const siteLimitBbox = [xMin, yMin, xMax, yMax] as [
-    number,
-    number,
-    number,
-    number
-  ];
-  // check if point is within the site limit
-  let points: Position[] = [];
-  randomPoint(nPoints, { bbox: siteLimitBbox }).features.forEach((point) => {
-    const isPointWithinSiteLimit = booleanPointInPolygon(
-      point.geometry.coordinates,
-      siteLimitPolygon
-    );
-    if (isPointWithinSiteLimit) {
-      points.push(point.geometry.coordinates as Position);
-    }
-  });
-
-  return points;
-};
-
-export const sampleOptionFromSiteLimit = (
-  siteLimit: Footprint,
-  // constraints: PolygonGeometry[],
-  // spaceBetweenBuildings: number,
-  widthRange: [number, number],
-  heightRange: [number, number],
-  numberOfBuildings: number
-): Option => {
-  const locations = generateRandomPoints(numberOfBuildings, siteLimit);
-  let widths: number[] = [];
-  let heights: number[] = [];
-  let angles: number[] = [];
-  let polygonGeometries: PolygonGeometry[] = [];
-
-  for (let i = 0; i < locations.length; i++) {
-    const width =
-      Math.random() * (widthRange[1] - widthRange[0]) + widthRange[0];
-    const height =
-      Math.random() * (heightRange[1] - heightRange[0]) + heightRange[0];
-    const location = locations[i];
-    const angle = Math.random() * 360;
-
-    // generate building polygonGeometry from width, height, location, angle
-    const poly = polygon([
-      [
-        [-height / 2 + location[0], -width / 2 + location[1]],
-        [-height / 2 + location[0], width / 2 + location[1]],
-        [height / 2 + location[0], width / 2 + location[1]],
-        [height / 2 + location[0], -width / 2 + location[1]],
-        [-height / 2 + location[0], -width / 2 + location[1]],
-      ],
-    ]);
-    // const rotatedPoly = transformRotate(poly, angle);
-    // tranlate coords to location
-    const polygonGeometry = {
-      type: "FeatureCollection",
-      features: [
-        {
-          type: "Feature",
-          geometry: poly.geometry,
-          properties: {},
-        },
-      ],
-    };
-    widths.push(width);
-    heights.push(height);
-    angles.push(angle);
-    polygonGeometries.push(polygonGeometry as PolygonGeometry);
-  }
-
-  return {
-    designVariables: {
-      widths,
-      heights,
-      locations,
-      angles,
-    },
-    buildings: polygonGeometries,
-  };
-};
-
-export function generateOptions(
-  siteLimit: PolygonGeometry,
-  constraints: PolygonGeometry[],
-  spaceBetweenBuildings: number = 3.0,
-  width: number = 20,
-  height: number = 20
-): PolygonGeometry {
-  console.log("Generating options");
-  const coordinates = siteLimit.features[0].geometry
-    .coordinates[0] as Position[];
-  const xs = coordinates.map((c) => c[0]);
-  const ys = coordinates.map((c) => c[1]);
-  const meanX = xs.reduce((acc, x) => x + acc, 0) / xs.length;
-  const meanY = ys.reduce((acc, y) => y + acc, 0) / ys.length;
-  const rectangle = [
-    [meanX - width / 2, meanY - height / 2],
-    [meanX + width / 2, meanY - height / 2],
-    [meanX + width / 2, meanY + height / 2],
-    [meanX - width / 2, meanY + height / 2],
-    [meanX - width / 2, meanY - height / 2],
-  ];
-  return {
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        geometry: {
-          type: "Polygon",
-          coordinates: [rectangle],
-        },
-        properties: {},
-      },
-    ],
-  };
+  const siteLimitBbox = { xMin: xMin, yMin: yMin, xMax: xMax, yMax: yMax };
+  return siteLimitBbox;
 }
