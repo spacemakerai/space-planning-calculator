@@ -4402,6 +4402,11 @@ char-regex@^2.0.0:
   resolved "https://registry.yarnpkg.com/char-regex/-/char-regex-2.0.1.tgz#6dafdb25f9d3349914079f010ba8d0e6ff9cd01e"
   integrity sha512-oSvEeo6ZUD7NepqAat3RqoucZ5SeqLJgOvVIwkafu6IP3V0pO38s/ypdVUmDDK6qIIHNlYHJAKX9E7R7HoKElw==
 
+charles.darwin@^1.3.0:
+  version "1.3.0"
+  resolved "https://registry.yarnpkg.com/charles.darwin/-/charles.darwin-1.3.0.tgz#dc4609753aa57931d1161c501516f5e94b0a7596"
+  integrity sha512-fNtHZcDKo3Eyzd/nyN/A0grV8eqgPJWMKTR1FaUWdwKcFwA4y8M5wm1PrD4to6RhCcXoVJ7HArY2LzDulGo9BQ==
+
 check-types@^11.2.3:
   version "11.2.3"
   resolved "https://registry.yarnpkg.com/check-types/-/check-types-11.2.3.tgz#1ffdf68faae4e941fce252840b1787b8edc93b71"

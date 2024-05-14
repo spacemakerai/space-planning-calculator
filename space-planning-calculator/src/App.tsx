@@ -114,6 +114,7 @@ function App() {
 
     if (!siteLimitFootprint) return;
     // const outputGeoJSON = generateOptions(siteLimitGeojson, constraintsGeojson);
+    optimize()
     const option = sampleOptionFromSiteLimit(
       siteLimitFootprint,
       inputParameters.widthRange,
