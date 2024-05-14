@@ -15,6 +15,7 @@ import {
 import { InputParametersType } from "./type";
 import { DoubleHandleSlider, SingleHandleSlider } from "./components/sliders";
 import { useState } from "react";
+import { optimize } from "./geneticAlgorithm";
 
 declare global {
   namespace JSX {
@@ -112,6 +113,7 @@ function App() {
 
     if (!siteLimitFootprint) return;
     // const outputGeoJSON = generateOptions(siteLimitGeojson, constraintsGeojson);
+    optimize()
     const option = sampleOptionFromSiteLimit(
       siteLimitFootprint,
       inputParameters.widthRange,
