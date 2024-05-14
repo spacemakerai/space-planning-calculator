@@ -10,12 +10,14 @@ import {
 } from "./fetchGeometryHook";
 import { InputParametersType } from "./type";
 import { DoubleHandleSlider, SingleHandleSlider } from "./components/sliders";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { optimize } from "./geneticAlgorithm";
 import { Footprint } from "forma-embedded-view-sdk/dist/internal/geometry";
+import { Darwin } from "charles.darwin";
+import { polygon } from "@turf/turf";
+import { generateOptionFromNormalizedChromosome } from "./generativeDesignEngine";
+import { getObjectiveFunctionValue } from "./objectiveFunction";
 import { Forma } from "forma-embedded-view-sdk/auto";
-import { optionState } from "./state";
-import { useRecoilState, useRecoilValue } from "recoil";
 
 declare global {
   namespace JSX {
@@ -100,8 +102,6 @@ const ParametersInput = (props: {
 };
 
 function App() {
-  const [isCalculationDone, setIsCalculationDone] = useState<boolean>(false);
-
   const [constraints, setConstraints] = useState<Footprint[]>([]);
   const [siteLimit, setSiteLimit] = useState<Footprint | undefined>();
 
@@ -111,8 +111,6 @@ function App() {
     landOptimizationRatio: 50,
     spaceBetweenBuildings: 0,
   });
-
-  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchConstraints = async () => {
@@ -134,24 +132,76 @@ function App() {
     fetchSiteLimit();
   }, []);
 
-  const onClick = async () => {
-    setIsLoading(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const onClick = useCallback(async () => {
     if (siteLimit) {
-      const finalOption = optimize(
-        constraints,
+      setIsLoading((prev) => !prev);
+      const numberOfBuildings = 10;
+      const numberOfChromosomes = numberOfBuildings * 5;
+      const populationSize = 1000;
+      const iterations = 50;
+
+      // positions, then heights, then widths, then angles => 5 * numberOfBuildings
+
+      const population = new Darwin<number>({
+        populationSize: populationSize,
+        chromosomeLength: numberOfChromosomes,
+        randomGene: () => Math.random(),
+      });
+
+      const siteLimitPolygon = polygon([siteLimit.coordinates]);
+      const constraintPolygons = constraints.map((constraint) =>
+        polygon([constraint.coordinates])
+      );
+
+      const evalFitness = (chromosome: number[]) => {
+        const option = generateOptionFromNormalizedChromosome(
+          chromosome,
+          siteLimit,
+          inputParameters.widthRange,
+          inputParameters.heightRange,
+          numberOfBuildings
+        );
+
+        const fitness = getObjectiveFunctionValue(
+          option,
+          siteLimitPolygon,
+          constraintPolygons,
+          inputParameters.spaceBetweenBuildings,
+          inputParameters.landOptimizationRatio
+        );
+
+        return fitness;
+      };
+
+      for (let i = 0; i < iterations; i++) {
+        population.updateFitness((genes) => evalFitness(genes));
+        population.mate();
+        const option = generateOptionFromNormalizedChromosome(
+          population.getTopChromosomes(1)[0].getGenes(),
+          siteLimit,
+          inputParameters.widthRange,
+          inputParameters.heightRange,
+          numberOfBuildings
+        );
+        await Forma.render.cleanup();
+        await renderGeoJSONs(option);
+        console.log(population.getStats());
+      }
+
+      const bestChromosome = population.getTopChromosomes(1);
+      const resultOption = generateOptionFromNormalizedChromosome(
+        bestChromosome[0].getGenes(),
         siteLimit,
-        inputParameters.landOptimizationRatio / 100,
-        inputParameters.spaceBetweenBuildings,
         inputParameters.widthRange,
         inputParameters.heightRange,
-        10,
-        1000,
-        50
+        numberOfBuildings
       );
-      await renderGeoJSONs(finalOption);
+
+      await renderGeoJSONs(resultOption);
     }
-  };
-  console.log(isLoading);
+  }, [setIsLoading, constraints, siteLimit, inputParameters]);
 
   return (
     <div className="App">
@@ -166,12 +216,8 @@ function App() {
           type="button"
           variant="solid"
           onClick={() => {
-            setIsLoading(true);
-            setIsCalculationDone(false);
-            onClick().then(() => {
-              setIsLoading(false);
-              setIsCalculationDone(true);
-            });
+            onClick();
+            setIsLoading(false);
           }}
           disabled={isLoading}
         >
@@ -179,7 +225,6 @@ function App() {
         </weave-button>
         {isLoading && (
           <div style={{ width: "100%", padding: "24px 0" }}>
-            {"Loading..."}
             <weave-progress-bar />
           </div>
         )}

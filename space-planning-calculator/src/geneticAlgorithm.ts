@@ -68,14 +68,6 @@ export const optimize = (
     numberOfBuildings
   );
 
-  renderObjectiveFunctionValue(
-    resultOption,
-    siteLimitPolygon,
-    constraintPolygons,
-    spaceBetweenBuildings,
-    landOptimizationRatio
-  );
-
   return resultOption;
 };
 
