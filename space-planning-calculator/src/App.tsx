@@ -8,7 +8,10 @@ import {
   fetchConstraintsFootprints,
   fetchSiteLimitFootprint,
 } from "./fetchGeometryHook";
-import { generateOptions } from "./generativeDesignEngine";
+import {
+  generateOptions,
+  sampleOptionFromSiteLimit,
+} from "./generativeDesignEngine";
 import { InputParametersType } from "./type";
 import { DoubleHandleSlider, SingleHandleSlider } from "./components/sliders";
 import { useState } from "react";
@@ -103,14 +106,21 @@ function App() {
     const constraintsGeojson = await fetchConstraintsFootprints(
       constraintsPaths
     );
-    const siteLimitGeojson = await fetchSiteLimitFootprint(siteLimit);
+    const siteLimitFootprint = await fetchSiteLimitFootprint(siteLimit);
     // mock longer fetch
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    if (!siteLimitGeojson) return;
-    const outputGeoJSON = generateOptions(siteLimitGeojson, constraintsGeojson);
+    if (!siteLimitFootprint) return;
+    // const outputGeoJSON = generateOptions(siteLimitGeojson, constraintsGeojson);
+    const option = sampleOptionFromSiteLimit(
+      siteLimitFootprint,
+      inputParameters.widthRange,
+      inputParameters.heightRange,
+      100
+    );
+    if (!option.buildings) return;
 
-    await renderGeoJSONs([outputGeoJSON]);
+    await renderGeoJSONs(option.buildings);
   };
 
   const [inputParameters, setInputParameters] = useState<InputParametersType>({

@@ -1,5 +1,9 @@
 import { Position } from "geojson";
 import { PolygonGeometry } from "./fetchGeometryHook";
+import { randomPoint } from "@turf/random";
+import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
+import { transformRotate, transformTranslate, polygon } from "@turf/turf";
+import { Footprint } from "forma-embedded-view-sdk/dist/internal/geometry";
 
 // 1. use input parameters to generate N random options (an option is a set of polygons/buildings)
 // e.g. one option
@@ -28,30 +32,107 @@ type Option = {
   objectiveValue?: number;
 };
 
-const sampleOptionFromSiteLimit = (
-  siteLimit: PolygonGeometry,
-  constraints: PolygonGeometry[],
-  spaceBetweenBuildings: number,
+// use turf to generate random points within the site limit
+const generateRandomPoints = (
+  nPoints: number,
+  siteLimit: Footprint
+): Position[] => {
+  const siteLimitPolygon = polygon([siteLimit.coordinates]);
+  const xMin = siteLimit.coordinates.reduce(
+    (acc, coord) => (coord[0] < acc ? coord[0] : acc),
+    Infinity
+  );
+  const xMax = siteLimit.coordinates.reduce(
+    (acc, coord) => (coord[0] > acc ? coord[0] : acc),
+    -Infinity
+  );
+  const yMin = siteLimit.coordinates.reduce(
+    (acc, coord) => (coord[1] < acc ? coord[1] : acc),
+    Infinity
+  );
+  const yMax = siteLimit.coordinates.reduce(
+    (acc, coord) => (coord[1] > acc ? coord[1] : acc),
+    -Infinity
+  );
+  const siteLimitBbox = [xMin, yMin, xMax, yMax] as [
+    number,
+    number,
+    number,
+    number
+  ];
+  // check if point is within the site limit
+  let points: Position[] = [];
+  randomPoint(nPoints, { bbox: siteLimitBbox }).features.forEach((point) => {
+    const isPointWithinSiteLimit = booleanPointInPolygon(
+      point.geometry.coordinates,
+      siteLimitPolygon
+    );
+    if (isPointWithinSiteLimit) {
+      points.push(point.geometry.coordinates as Position);
+    }
+  });
+
+  return points;
+};
+
+export const sampleOptionFromSiteLimit = (
+  siteLimit: Footprint,
+  // constraints: PolygonGeometry[],
+  // spaceBetweenBuildings: number,
   widthRange: [number, number],
   heightRange: [number, number],
   numberOfBuildings: number
 ): Option => {
+  const locations = generateRandomPoints(numberOfBuildings, siteLimit);
+  let widths: number[] = [];
+  let heights: number[] = [];
+  let angles: number[] = [];
+  let polygonGeometries: PolygonGeometry[] = [];
+
+  for (let i = 0; i < locations.length; i++) {
+    const width =
+      Math.random() * (widthRange[1] - widthRange[0]) + widthRange[0];
+    const height =
+      Math.random() * (heightRange[1] - heightRange[0]) + heightRange[0];
+    const location = locations[i];
+    const angle = Math.random() * 360;
+
+    // generate building polygonGeometry from width, height, location, angle
+    const poly = polygon([
+      [
+        [-height / 2 + location[0], -width / 2 + location[1]],
+        [-height / 2 + location[0], width / 2 + location[1]],
+        [height / 2 + location[0], width / 2 + location[1]],
+        [height / 2 + location[0], -width / 2 + location[1]],
+        [-height / 2 + location[0], -width / 2 + location[1]],
+      ],
+    ]);
+    // const rotatedPoly = transformRotate(poly, angle);
+    // tranlate coords to location
+    const polygonGeometry = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: poly.geometry,
+          properties: {},
+        },
+      ],
+    };
+    widths.push(width);
+    heights.push(height);
+    angles.push(angle);
+    polygonGeometries.push(polygonGeometry as PolygonGeometry);
+  }
+
   return {
     designVariables: {
-      widths: Array.from(
-        { length: numberOfBuildings },
-        () => Math.random() * (widthRange[1] - widthRange[0]) + widthRange[0]
-      ),
-      heights: Array.from(
-        { length: numberOfBuildings },
-        () => Math.random() * (heightRange[1] - heightRange[0]) + heightRange[0]
-      ),
-      locations: //TODO,
-      angles: Array.from(
-        { length: numberOfBuildings },
-        () => Math.random() * 360
-      ),
+      widths,
+      heights,
+      locations,
+      angles,
     },
+    buildings: polygonGeometries,
   };
 };
 
