@@ -10,13 +10,14 @@ import {
 } from "./fetchGeometryHook";
 import {
   createFeatureCollection,
-  sampleOptionFromSiteLimit,
+  generateOption,
 } from "./generativeDesignEngine";
 import { InputParametersType } from "./type";
 import { DoubleHandleSlider, SingleHandleSlider } from "./components/sliders";
 import { useState } from "react";
 import { getObjectiveFunctionValue } from "./objectiveFunction";
 import { polygon } from "@turf/turf";
+import { optimize } from "./geneticAlgorithm";
 
 declare global {
   namespace JSX {
@@ -110,35 +111,23 @@ function App() {
     );
     const siteLimitFootprint = await fetchSiteLimitFootprint(siteLimit);
     // mock longer fetch
+    // TODO: REMOVE
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     if (!siteLimitFootprint) return;
-    // const outputGeoJSON = generateOptions(siteLimitGeojson, constraintsGeojson);
-    optimize()
-    const option = sampleOptionFromSiteLimit(
+    const finalOption = optimize(
+      constraintsGeojson,
       siteLimitFootprint,
+      inputParameters.landOptimizationRatio,
+      inputParameters.spaceBetweenBuildings,
       inputParameters.widthRange,
       inputParameters.heightRange,
-      100
-    );
-    if (!option.buildings) return;
-
-    const siteLimitPolygon = polygon([siteLimitFootprint.coordinates]);
-    const constraintPolygons = constraintsGeojson.map((constraint) =>
-      polygon([constraint.coordinates])
+      10,
+      1000,
+      200
     );
 
-    const fitnessValue = getObjectiveFunctionValue(
-      option.buildings,
-      siteLimitPolygon,
-      constraintPolygons,
-      inputParameters.spaceBetweenBuildings,
-      inputParameters.landOptimizationRatio / 100
-    );
-
-    console.log(fitnessValue);
-
-    await renderGeoJSONs(option.buildings);
+    await renderGeoJSONs(finalOption);
   };
 
   const [inputParameters, setInputParameters] = useState<InputParametersType>({

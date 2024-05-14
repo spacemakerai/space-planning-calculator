@@ -28,83 +28,77 @@ import { Footprint } from "forma-embedded-view-sdk/dist/internal/geometry";
 // obj func to min = abs(area of all buildings in option / area of site limit - utilization) + area of overlap with constraints
 // probably need to add turf for polygon
 
-type Option = {
-  // designVariables are the result of the initial random sampling
-  designVariables: {
-    widths: number[];
-    heights: number[];
-    locations: Position[];
-    angles: number[];
-  };
-  // the actual buildings generated
-  buildings?: PolygonGeometry[];
-  objectiveValue?: number;
-};
-
-// use turf to generate random points within the site limit
-const generateRandomPoints = (
-  nPoints: number,
-  siteLimit: Footprint
-): Position[] => {
-  const siteLimitPolygon = polygon([siteLimit.coordinates]);
-  const xMin = siteLimit.coordinates.reduce(
-    (acc, coord) => (coord[0] < acc ? coord[0] : acc),
-    Infinity
-  );
-  const xMax = siteLimit.coordinates.reduce(
-    (acc, coord) => (coord[0] > acc ? coord[0] : acc),
-    -Infinity
-  );
-  const yMin = siteLimit.coordinates.reduce(
-    (acc, coord) => (coord[1] < acc ? coord[1] : acc),
-    Infinity
-  );
-  const yMax = siteLimit.coordinates.reduce(
-    (acc, coord) => (coord[1] > acc ? coord[1] : acc),
-    -Infinity
-  );
-  const siteLimitBbox = [xMin, yMin, xMax, yMax] as [
-    number,
-    number,
-    number,
-    number
-  ];
-  // check if point is within the site limit
-  let points: Position[] = [];
-  randomPoint(nPoints, { bbox: siteLimitBbox }).features.forEach((point) => {
-    const isPointWithinSiteLimit = booleanPointInPolygon(
-      point.geometry.coordinates,
-      siteLimitPolygon
-    );
-    if (isPointWithinSiteLimit) {
-      points.push(point.geometry.coordinates as Position);
-    }
-  });
-
-  return points;
-};
-
-export const sampleOptionFromSiteLimit = (
+export const generateOptionFromNormalizedChromosome = (
+  chromosome: number[],
   siteLimit: Footprint,
-  // constraints: PolygonGeometry[],
-  // spaceBetweenBuildings: number,
-  widthRange: [number, number],
+  widhtRange: [number, number],
   heightRange: [number, number],
   numberOfBuildings: number
-): Option => {
-  const locations = generateRandomPoints(numberOfBuildings, siteLimit);
-  let widths: number[] = [];
-  let heights: number[] = [];
-  let angles: number[] = [];
-  let polygonGeometries: PolygonGeometry[] = [];
+) => {
+  const widths = chromosome
+    .slice(0, numberOfBuildings)
+    .map(
+      (normalizedWidth) =>
+        normalizedWidth * (widhtRange[1] - widhtRange[0]) + widhtRange[0]
+    );
+  const heights = chromosome
+    .slice(numberOfBuildings, numberOfBuildings * 2)
+    .map(
+      (normalizedHeight) =>
+        normalizedHeight * (heightRange[1] - heightRange[0]) + heightRange[0]
+    );
+  const angles = chromosome
+    .slice(numberOfBuildings * 2, numberOfBuildings * 3)
+    .map((normalizedAngle) => normalizedAngle * 360);
 
-  for (let i = 0; i < locations.length; i++) {
-    const width =
-      Math.random() * (widthRange[1] - widthRange[0]) + widthRange[0];
-    const height =
-      Math.random() * (heightRange[1] - heightRange[0]) + heightRange[0];
-    const location = locations[i];
-    const angle = Math.random() * 360;
+  const normalizedPositions = chromosome.slice(
+    numberOfBuildings * 3,
+    numberOfBuildings * 5
+  );
+  let positions: Position[] = [];
+
+  for (let i = 0; i < numberOfBuildings; i++) {
+    const normalizedPosition = [
+      normalizedPositions[2 * i],
+      normalizedPositions[2 * i + 1],
+    ];
+    const siteLimitBbox = getBboxFromFootprint(siteLimit);
+    const x =
+      normalizedPosition[0] * (siteLimitBbox.xMax - siteLimitBbox.xMin) +
+      siteLimitBbox.xMin;
+    const y =
+      normalizedPosition[1] * (siteLimitBbox.yMax - siteLimitBbox.yMin) +
+      siteLimitBbox.yMin;
+    positions.push([x, y]);
+  }
+
+  return generateOption(widths, heights, angles, positions);
+};
+
+export const generateOption = (
+  widths: number[],
+  heights: number[],
+  angles: number[],
+  positions: Position[]
+): PolygonGeometry[] => {
+  // check lengths of arrays are different and throw error
+  if (
+    widths.length !== heights.length ||
+    widths.length !== positions.length ||
+    widths.length !== angles.length
+  ) {
+    throw new Error(
+      "Widths, height, angles, and positions must have the same length"
+    );
+  }
+  let polygonGeometries: PolygonGeometry[] = [];
+  // generate buildings
+  for (let i = 0; i < positions.length; i++) {
+    const width = widths[i];
+    const height = heights[i];
+    const location = positions[i];
+
+    const angle = angles[i];
 
     // generate building polygonGeometry from width, height, location, angle
     const poly = polygon([
@@ -136,21 +130,9 @@ export const sampleOptionFromSiteLimit = (
         },
       ],
     };
-    widths.push(width);
-    heights.push(height);
-    angles.push(angle);
     polygonGeometries.push(polygonGeometry as PolygonGeometry);
   }
-
-  return {
-    designVariables: {
-      widths,
-      heights,
-      locations,
-      angles,
-    },
-    buildings: polygonGeometries,
-  };
+  return polygonGeometries;
 };
 
 export const createFeatureCollection = (
@@ -167,3 +149,24 @@ export const createFeatureCollection = (
     ],
   };
 };
+
+function getBboxFromFootprint(siteLimit: Footprint) {
+  const xMin = siteLimit.coordinates.reduce(
+    (acc, coord) => (coord[0] < acc ? coord[0] : acc),
+    Infinity
+  );
+  const xMax = siteLimit.coordinates.reduce(
+    (acc, coord) => (coord[0] > acc ? coord[0] : acc),
+    -Infinity
+  );
+  const yMin = siteLimit.coordinates.reduce(
+    (acc, coord) => (coord[1] < acc ? coord[1] : acc),
+    Infinity
+  );
+  const yMax = siteLimit.coordinates.reduce(
+    (acc, coord) => (coord[1] > acc ? coord[1] : acc),
+    -Infinity
+  );
+  const siteLimitBbox = { xMin: xMin, yMin: yMin, xMax: xMax, yMax: yMax };
+  return siteLimitBbox;
+}
