@@ -29,7 +29,7 @@ export function getObjectiveFunctionValueForBuilding(
 
   // Determine if the building is within the site limit
   const containedBySiteLimit = booleanContains(siteLimit, buildingPolygon);
-  const siteLimitContainmentValue = containedBySiteLimit ? 1 : 0;
+  const siteLimitContainmentValue = containedBySiteLimit ? 0 : 1;
 
   // Determine overlap with other buildings - within the margin of spaceBetweenBuildings
   const otherBuildingsOverlap =
@@ -44,8 +44,6 @@ export function getObjectiveFunctionValueForBuilding(
     }, 0) / area(buildingPolygon);
 
   return constraintsOverlap + siteLimitContainmentValue + otherBuildingsOverlap;
-
-  // Determine land optimization ratio
 }
 
 const getLandUtilizationFactor = (
@@ -92,7 +90,6 @@ export function getObjectiveFunctionValue(
     siteLimit,
     landUtilizationRatio
   );
-  console.log("landUtilizationFactor", landUtilizationFactor);
 
   return totalObjectiveValue + landUtilizationFactor;
 }

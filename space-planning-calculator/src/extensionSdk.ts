@@ -38,6 +38,7 @@ export async function renderGeoJSONs(geoJSONs: PolygonGeometry[]) {
       for (let i = 0; i < geometry.attributes.position.count; i++) {
         color.push(211, 211, 211, 200);
       }
+
       Forma.render.addMesh({
         geometryData: {
           position: new Float32Array(
