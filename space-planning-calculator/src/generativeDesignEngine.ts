@@ -2,7 +2,13 @@ import { Position } from "geojson";
 import { PolygonGeometry } from "./fetchGeometryHook";
 import { randomPoint } from "@turf/random";
 import booleanPointInPolygon from "@turf/boolean-point-in-polygon";
-import { transformRotate, transformTranslate, polygon } from "@turf/turf";
+import {
+  transformRotate,
+  transformTranslate,
+  polygon,
+  toWgs84,
+  toMercator,
+} from "@turf/turf";
 import { Footprint } from "forma-embedded-view-sdk/dist/internal/geometry";
 
 // 1. use input parameters to generate N random options (an option is a set of polygons/buildings)
@@ -107,14 +113,22 @@ export const sampleOptionFromSiteLimit = (
         [-height / 2 + location[0], -width / 2 + location[1]],
       ],
     ]);
-    // const rotatedPoly = transformRotate(poly, angle);
+
+    const polyTransformed = polygon([
+      poly.geometry.coordinates[0].map((point) => toWgs84(point)),
+    ]);
+
+    const rotatedPoly = transformRotate(polyTransformed, angle);
+    const reTransformedPoly = polygon([
+      rotatedPoly.geometry.coordinates[0].map((point) => toMercator(point)),
+    ]);
     // tranlate coords to location
     const polygonGeometry = {
       type: "FeatureCollection",
       features: [
         {
           type: "Feature",
-          geometry: poly.geometry,
+          geometry: reTransformedPoly.geometry,
           properties: {},
         },
       ],
