@@ -8,6 +8,9 @@ import {
   polygon,
   toWgs84,
   toMercator,
+  Feature,
+  Polygon,
+  Properties,
 } from "@turf/turf";
 import { Footprint } from "forma-embedded-view-sdk/dist/internal/geometry";
 
@@ -150,38 +153,17 @@ export const sampleOptionFromSiteLimit = (
   };
 };
 
-export function generateOptions(
-  siteLimit: PolygonGeometry,
-  constraints: PolygonGeometry[],
-  spaceBetweenBuildings: number = 3.0,
-  width: number = 20,
-  height: number = 20
-): PolygonGeometry {
-  console.log("Generating options");
-  const coordinates = siteLimit.features[0].geometry
-    .coordinates[0] as Position[];
-  const xs = coordinates.map((c) => c[0]);
-  const ys = coordinates.map((c) => c[1]);
-  const meanX = xs.reduce((acc, x) => x + acc, 0) / xs.length;
-  const meanY = ys.reduce((acc, y) => y + acc, 0) / ys.length;
-  const rectangle = [
-    [meanX - width / 2, meanY - height / 2],
-    [meanX + width / 2, meanY - height / 2],
-    [meanX + width / 2, meanY + height / 2],
-    [meanX - width / 2, meanY + height / 2],
-    [meanX - width / 2, meanY - height / 2],
-  ];
+export const createFeatureCollection = (
+  geometry: Feature<Polygon, Properties>
+) => {
   return {
     type: "FeatureCollection",
     features: [
       {
         type: "Feature",
-        geometry: {
-          type: "Polygon",
-          coordinates: [rectangle],
-        },
+        geometry: geometry,
         properties: {},
       },
     ],
   };
-}
+};

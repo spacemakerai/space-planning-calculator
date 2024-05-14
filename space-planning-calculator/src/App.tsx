@@ -9,12 +9,14 @@ import {
   fetchSiteLimitFootprint,
 } from "./fetchGeometryHook";
 import {
-  generateOptions,
+  createFeatureCollection,
   sampleOptionFromSiteLimit,
 } from "./generativeDesignEngine";
 import { InputParametersType } from "./type";
 import { DoubleHandleSlider, SingleHandleSlider } from "./components/sliders";
 import { useState } from "react";
+import { getObjectiveFunctionValue } from "./objectiveFunction";
+import { polygon } from "@turf/turf";
 
 declare global {
   namespace JSX {
@@ -119,6 +121,21 @@ function App() {
       100
     );
     if (!option.buildings) return;
+
+    const siteLimitPolygon = polygon([siteLimitFootprint.coordinates]);
+    const constraintPolygons = constraintsGeojson.map((constraint) =>
+      polygon([constraint.coordinates])
+    );
+
+    const fitnessValue = getObjectiveFunctionValue(
+      option.buildings,
+      siteLimitPolygon,
+      constraintPolygons,
+      inputParameters.spaceBetweenBuildings,
+      inputParameters.landOptimizationRatio / 100
+    );
+
+    console.log(fitnessValue);
 
     await renderGeoJSONs(option.buildings);
   };
